@@ -20,7 +20,12 @@ class ExpandingToolBar: UIView {
     var buttonSize: CGFloat = 0
     var expandButton: UIButton?
     var direction: Direction = .west
-    
+    var delegate: Panable?
+    var panable: Bool = false{
+        didSet{
+            panStatusChanged()
+        }
+    }
     
 
     
@@ -89,12 +94,12 @@ class ExpandingToolBar: UIView {
         }
         else {
             UIView.animate(withDuration: 0.5) { [unowned self] in
-                self.frame = self.rectForContractionFrom(direction: self.direction)
-                self.expandButton!.bounds = self.rectForContractionFrom(direction: self.direction)
+                let originalFrame = self.rectForContractionFrom(direction: self.direction)
+                self.frame = originalFrame
+                self.expandButton!.frame.origin = CGPoint(x: 0, y: 0)
             }
             contractActionButtons()
         }
-        
         isExpanded = !isExpanded
     }
     
@@ -125,7 +130,6 @@ class ExpandingToolBar: UIView {
                 thisAction.button.frame.origin = CGPoint(x: x, y: y)
             }
             self.exchangeSubview(at: 0, withSubviewAt: self.actions.count)
-
         }
     }
     
@@ -138,14 +142,14 @@ class ExpandingToolBar: UIView {
             x = self.bounds.origin.x + self.minSize*CGFloat(position)
             y = self.bounds.origin.y
         case .west:
-            x = self.maxSize - minSize*CGFloat(position)
+            x = self.maxSize - minSize*CGFloat(position + 1)
             y = self.bounds.origin.y
         case .south:
             x = self.bounds.origin.x
             y = self.bounds.origin.y + self.minSize*CGFloat(position)
         case .north:
             x = self.bounds.origin.x
-            y = self.maxSize - minSize*CGFloat(position)
+            y = self.maxSize - minSize*CGFloat(position + 1)
         }
         return (x,y)
     }
@@ -173,19 +177,7 @@ class ExpandingToolBar: UIView {
 //            
 //        }
 //    }
-    
-    
-    
-    
 
-    
-
-    
-    
-    
-    
-    
-    
     func contractActionButtons(){
        UIView.animate(withDuration: 0.5, animations: {
         for i in 0..<self.actions.count {
@@ -217,27 +209,48 @@ class ExpandingToolBar: UIView {
         switch(direction){
         case .east:
              base = CGRect(x: self.frame.origin.x, y: self.frame.origin.y, width: maxSize, height: minSize)
-             sub = expandButton!.frame
+             sub = expandButton!.bounds
         
         case .west:
-             base = CGRect(x: self.frame.origin.x - maxSize, y: self.frame.origin.y, width: maxSize, height: minSize)
-             let x = self.bounds.origin.x + maxSize
+             base = CGRect(x: self.frame.origin.x - maxSize + minSize, y: self.frame.origin.y, width: maxSize, height: minSize)
+             let x = maxSize - minSize
              sub = CGRect(x: x, y: self.bounds.origin.y, width: minSize, height: minSize)
         
         case .south:
             base = CGRect(x: self.frame.origin.x, y: self.frame.origin.y, width: minSize, height: maxSize)
-            sub = expandButton!.frame
+            sub = expandButton!.bounds
         
         case .north:
-            base = CGRect(x: self.frame.origin.x, y: self.frame.origin.y - maxSize, width: minSize, height: maxSize)
-            let y = self.bounds.origin.y + minSize
+            base = CGRect(x: self.frame.origin.x, y: self.frame.origin.y - maxSize + minSize, width: minSize, height: maxSize)
+            let y = maxSize - minSize
             sub =  CGRect(x: self.bounds.origin.y, y: y, width: minSize, height: minSize)
         }
         return (base, sub)
     }
     
+    func panStatusChanged(){
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(callDelegate))
+        
+        
+        if self.panable && self.expandButton!.gestureRecognizers == nil{
+            self.expandButton!.addGestureRecognizer(panGesture)
+        }
+        if !panable{
+            self.expandButton!.removeGestureRecognizer(panGesture)
+        }
+    }
+    
+    func callDelegate(){
+        print("calling delegate")
+//        let sender = self.expandButton!.gestureRecognizers![0] as! UIPanGestureRecognizer
+        self.delegate?.moveToolbar(sender: self.expandButton!.gestureRecognizers![0] as! UIPanGestureRecognizer, source: self)
+    }
     
 }
+
+
+
+
 
 enum Direction{
     case north
@@ -249,6 +262,23 @@ enum Direction{
 struct ToolbarAction {
     var button: UIButton
     var action: () -> ()
+}
+
+
+protocol Panable{
+    func moveToolbar(sender: UIPanGestureRecognizer, source:UIView)
+}
+
+extension Panable where Self: UIViewController{
+    func moveToolbar(sender: UIPanGestureRecognizer, source: UIView){
+        if sender.state == .began || sender.state == .changed {
+            
+            let translation = sender.translation(in: self.view)
+
+            source.center = CGPoint(x: source.center.x + translation.x, y: source.center.y + translation.y)
+            sender.setTranslation(CGPoint.zero, in: self.view)
+        }
+    }
 }
 
 
