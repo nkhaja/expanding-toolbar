@@ -15,7 +15,7 @@ class ViewController: UIViewController {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-        let frame = CGRect(x: 40, y: 40, width: 300, height: 50)
+        let frame = CGRect(x: 200, y: 40, width: 200, height: 50)
         let toolbar = ExpandingToolBar(frame: frame, buttonSize: 500)
         toolbar.addAction(title: "orange", action: makeOrange)
         toolbar.addAction(title: "red", action: makeRed)

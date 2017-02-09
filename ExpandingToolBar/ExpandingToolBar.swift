@@ -19,7 +19,7 @@ class ExpandingToolBar: UIView {
     var numActions: CGFloat = 1
     var buttonSize: CGFloat = 0
     var expandButton: UIButton?
-    var direction: Direction = .right
+    var direction: Direction = .west
     
     
 
@@ -74,33 +74,29 @@ class ExpandingToolBar: UIView {
             expandButton.backgroundColor = UIColor.green
             expandButton.addTarget(self, action: #selector(expand), for: .touchUpInside)
             expandButton.setTitle("TT", for: .normal)
-            
         }
     }
     
     func expand(){
-        if self.direction == .right {
-            //do as below
-
-        }
-   
-        
+        print("tapped")
         if !isExpanded {
+            let newFrames = rectForDirection(direction: self.direction)
             UIView.animate(withDuration: 0.5) { [unowned self] in
-                self.frame = CGRect(x: self.frame.origin.x, y: self.frame.origin.y, width: self.maxSize, height: self.frame.height)
+                self.frame = newFrames.base
+                self.expandButton!.frame = newFrames.sub
             }
             layoutActionButtons()
         }
         else {
             UIView.animate(withDuration: 0.5) { [unowned self] in
-                self.frame = CGRect(x: self.frame.origin.x, y: self.frame.origin.y, width: self.minSize, height: self.minSize)
+                self.frame = self.rectForContractionFrom(direction: self.direction)
+                self.expandButton!.bounds = self.rectForContractionFrom(direction: self.direction)
             }
             contractActionButtons()
         }
         
         isExpanded = !isExpanded
     }
-    
     
     func addAction(title:String, action:  @escaping () -> ()){
         self.numActions += 1
@@ -118,17 +114,77 @@ class ExpandingToolBar: UIView {
     }
     
     func layoutActionButtons(){
-        UIView.animate(withDuration: 0.5) {
+        UIView.animate(withDuration: 0.5) { [unowned self] in
             for i in 1...self.actions.count {
                 self.addSubview(self.actions[i - 1].button)
                 let thisAction = self.actions[i - 1]
-                let x = self.bounds.origin.x + self.minSize*CGFloat(i)
-                let y = self.bounds.origin.y
+                let coordinates = self.coordinatesForDirection(direction: self.direction, position: i)
+                
+                let x = coordinates.x
+                let y = coordinates.y
                 thisAction.button.frame.origin = CGPoint(x: x, y: y)
-                self.exchangeSubview(at: 0, withSubviewAt: self.actions.count)
             }
+            self.exchangeSubview(at: 0, withSubviewAt: self.actions.count)
+
         }
     }
+    
+    func coordinatesForDirection(direction: Direction, position: Int) -> (x: CGFloat, y: CGFloat){
+        var x: CGFloat
+        var y: CGFloat
+        
+        switch(direction){
+        case .east:
+            x = self.bounds.origin.x + self.minSize*CGFloat(position)
+            y = self.bounds.origin.y
+        case .west:
+            x = self.maxSize - minSize*CGFloat(position)
+            y = self.bounds.origin.y
+        case .south:
+            x = self.bounds.origin.x
+            y = self.bounds.origin.y + self.minSize*CGFloat(position)
+        case .north:
+            x = self.bounds.origin.x
+            y = self.maxSize - minSize*CGFloat(position)
+        }
+        return (x,y)
+    }
+    
+    func rectForContractionFrom(direction: Direction) -> CGRect{
+        switch direction {
+        case .east, .south:
+            return CGRect(x: self.frame.origin.x, y: self.frame.origin.y, width: self.minSize, height: self.minSize)
+        case .west:
+            return CGRect(x: self.frame.origin.x + maxSize - minSize, y: self.frame.origin.y, width: minSize, height: minSize)
+        case .north:
+            return CGRect(x: self.frame.origin.x, y: self.frame.origin.y + maxSize - minSize, width: minSize, height: minSize)
+        }
+        
+    }
+    
+    
+//    func contractToFrameFrom(direction:Direction) -> CGPoint{
+//        switch(direction){
+//        case .east, .south:
+//            return self.bounds.origin
+//        case .west, .north:
+//            x = self.bounds.origin
+//            
+//            
+//        }
+//    }
+    
+    
+    
+    
+
+    
+
+    
+    
+    
+    
+    
     
     func contractActionButtons(){
        UIView.animate(withDuration: 0.5, animations: {
@@ -152,16 +208,42 @@ class ExpandingToolBar: UIView {
                 a.action()
             }
         }
-        
-        
     }
+    
+    
+    func rectForDirection(direction: Direction) -> (base: CGRect,sub: CGRect ){
+        var base: CGRect
+        var sub: CGRect
+        switch(direction){
+        case .east:
+             base = CGRect(x: self.frame.origin.x, y: self.frame.origin.y, width: maxSize, height: minSize)
+             sub = expandButton!.frame
+        
+        case .west:
+             base = CGRect(x: self.frame.origin.x - maxSize, y: self.frame.origin.y, width: maxSize, height: minSize)
+             let x = self.bounds.origin.x + maxSize
+             sub = CGRect(x: x, y: self.bounds.origin.y, width: minSize, height: minSize)
+        
+        case .south:
+            base = CGRect(x: self.frame.origin.x, y: self.frame.origin.y, width: minSize, height: maxSize)
+            sub = expandButton!.frame
+        
+        case .north:
+            base = CGRect(x: self.frame.origin.x, y: self.frame.origin.y - maxSize, width: minSize, height: maxSize)
+            let y = self.bounds.origin.y + minSize
+            sub =  CGRect(x: self.bounds.origin.y, y: y, width: minSize, height: minSize)
+        }
+        return (base, sub)
+    }
+    
+    
 }
 
 enum Direction{
-    case up
-    case down
-    case left
-    case right
+    case north
+    case south
+    case east
+    case west
 }
 
 struct ToolbarAction {
