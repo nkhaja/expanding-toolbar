@@ -10,16 +10,26 @@ import UIKit
 
 class ExpandingToolBar: UIView {
 
-    var maxSize: CGFloat = 0
-    var minSize: CGFloat = 0
+    private var maxSize: CGFloat = 0
+    private var minSize: CGFloat = 0
     var canExpand: Bool = true
     var colors:[UIColor] = [UIColor.red, UIColor.blue, UIColor.green]
-    var isExpanded = false
-    var actions = [ToolbarAction]()
-    var numActions: CGFloat = 1
+    public private(set) var isExpanded = false
+    public private(set) var actions = [ToolbarAction]()
+    public private(set) var numActions: CGFloat = 1
     var buttonSize: CGFloat = 0
     var expandButton: UIButton?
-    var direction: Direction = .west
+    var buttonBorderWidth: CGFloat = 1
+    var buttonBorderColor = UIColor.black.cgColor
+    var buttonColor = UIColor.gray
+    
+    var direction: Direction = .west{
+        didSet{
+            self.isExpanded = false
+            contractActionButtons()
+        }
+    }
+    
     var delegate: Panable?
     var panable: Bool = false{
         didSet{
@@ -27,7 +37,6 @@ class ExpandingToolBar: UIView {
         }
     }
     
-
     
     init(frame: CGRect, buttonSize: CGFloat?) {
         
@@ -67,22 +76,49 @@ class ExpandingToolBar: UIView {
 
     
     required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        super.init(coder: aDecoder)
+        
     }
     
-    func buildExpandButton(){
+    
+    override func layoutSubviews() {
+        var height: CGFloat
+        var width: CGFloat
+        
+        if frame.height > frame.width{
+            self.minSize = frame.width
+            self.maxSize = frame.height
+            width = minSize
+            height = width
+        }
+        else{
+            self.minSize = frame.height
+            self.maxSize = frame.width
+            height = minSize
+            width = height
+        }
+        
+        self.buttonSize = minSize
+        self.backgroundColor = .gray
+        buildExpandButton()
+    }
+    
+    private func buildExpandButton(){
         let buttonRect = CGRect(x: self.bounds.origin.x, y: self.bounds.origin.y, width: minSize, height: minSize)
         expandButton = UIButton(frame: buttonRect)
+        
         if let expandButton = expandButton {
 
             self.addSubview(expandButton)
-            expandButton.backgroundColor = UIColor.green
+            expandButton.backgroundColor = UIColor.gray
             expandButton.addTarget(self, action: #selector(expand), for: .touchUpInside)
-            expandButton.setTitle("TT", for: .normal)
+            expandButton.setTitle("+", for: .normal)
+            expandButton.clipsToBounds = true
+//            expandButton.layer.cornerRadius = 5
         }
     }
     
-    func expand(){
+     func expand(){
         print("tapped")
         if !isExpanded {
             let newFrames = rectForDirection(direction: self.direction)
@@ -103,7 +139,7 @@ class ExpandingToolBar: UIView {
         isExpanded = !isExpanded
     }
     
-    func addAction(title:String, action:  @escaping () -> ()){
+    func addAction(title:String, image: UIImage?, action:  @escaping () -> ()){
         self.numActions += 1
         let x = self.bounds.origin.x
         let y = self.bounds.origin.y
@@ -111,15 +147,19 @@ class ExpandingToolBar: UIView {
         let buttonRect = CGRect(x: x, y: y, width: minSize, height: minSize)
         let button = UIButton(frame: buttonRect)
         button.backgroundColor = UIColor.brown
-        button.layer.borderWidth = 5
-        button.layer.borderColor = UIColor.black.cgColor
+        button.layer.borderWidth = self.buttonBorderWidth
+        button.layer.borderColor = self.buttonBorderColor
         button.addTarget(self, action: #selector(triggerAction(sender:)), for: .touchUpInside)
-        let toolbarAction = ToolbarAction(button: button, action: action)
+        button.clipsToBounds = true
+        button.layer.cornerRadius = 5
+        let toolbarAction = ToolbarAction(button: button, image:image, action: action)
         actions.append(toolbarAction)
     }
     
-    func layoutActionButtons(){
+    private func layoutActionButtons(){
         UIView.animate(withDuration: 0.5) { [unowned self] in
+            guard self.actions.count > 1 else {return}
+            
             for i in 1...self.actions.count {
                 self.addSubview(self.actions[i - 1].button)
                 let thisAction = self.actions[i - 1]
@@ -133,7 +173,7 @@ class ExpandingToolBar: UIView {
         }
     }
     
-    func coordinatesForDirection(direction: Direction, position: Int) -> (x: CGFloat, y: CGFloat){
+    private func coordinatesForDirection(direction: Direction, position: Int) -> (x: CGFloat, y: CGFloat){
         var x: CGFloat
         var y: CGFloat
         
@@ -154,7 +194,7 @@ class ExpandingToolBar: UIView {
         return (x,y)
     }
     
-    func rectForContractionFrom(direction: Direction) -> CGRect{
+    private func rectForContractionFrom(direction: Direction) -> CGRect{
         switch direction {
         case .east, .south:
             return CGRect(x: self.frame.origin.x, y: self.frame.origin.y, width: self.minSize, height: self.minSize)
@@ -167,18 +207,8 @@ class ExpandingToolBar: UIView {
     }
     
     
-//    func contractToFrameFrom(direction:Direction) -> CGPoint{
-//        switch(direction){
-//        case .east, .south:
-//            return self.bounds.origin
-//        case .west, .north:
-//            x = self.bounds.origin
-//            
-//            
-//        }
-//    }
 
-    func contractActionButtons(){
+    private func contractActionButtons(){
        UIView.animate(withDuration: 0.5, animations: {
         for i in 0..<self.actions.count {
             let thisAction = self.actions[i]
@@ -194,7 +224,7 @@ class ExpandingToolBar: UIView {
     }
     
     
-    func triggerAction(sender:UIButton){
+     func triggerAction(sender:UIButton){
         for a in actions{
             if sender == a.button{
                 a.action()
@@ -203,7 +233,7 @@ class ExpandingToolBar: UIView {
     }
     
     
-    func rectForDirection(direction: Direction) -> (base: CGRect,sub: CGRect ){
+    private func rectForDirection(direction: Direction) -> (base: CGRect,sub: CGRect ){
         var base: CGRect
         var sub: CGRect
         switch(direction){
@@ -228,7 +258,7 @@ class ExpandingToolBar: UIView {
         return (base, sub)
     }
     
-    func panStatusChanged(){
+   private func panStatusChanged(){
         let panGesture = UIPanGestureRecognizer(target: self, action: #selector(callDelegate))
         
         
@@ -240,12 +270,12 @@ class ExpandingToolBar: UIView {
         }
     }
     
-    func callDelegate(){
+    
+    
+    func callDelegate(){ // TODO: How do I modify the access level of this function if
         print("calling delegate")
-//        let sender = self.expandButton!.gestureRecognizers![0] as! UIPanGestureRecognizer
         self.delegate?.moveToolbar(sender: self.expandButton!.gestureRecognizers![0] as! UIPanGestureRecognizer, source: self)
     }
-    
 }
 
 
@@ -262,12 +292,31 @@ enum Direction{
 struct ToolbarAction {
     var button: UIButton
     var action: () -> ()
+    
+    var image:UIImage?{
+        didSet{
+            self.button.setImage(image, for: .normal)
+            self.button.imageView?.contentMode = .scaleAspectFit
+        }
+    }
+    
+    
+    init(button:UIButton, image: UIImage?, action: @escaping () -> ()){
+        self.button = button
+        self.action = action
+        if let image = image{
+            self.image = image
+            self.button.imageView?.contentMode = .scaleAspectFit
+        }
+    }
+
 }
 
 
 protocol Panable{
     func moveToolbar(sender: UIPanGestureRecognizer, source:UIView)
 }
+
 
 extension Panable where Self: UIViewController{
     func moveToolbar(sender: UIPanGestureRecognizer, source: UIView){
