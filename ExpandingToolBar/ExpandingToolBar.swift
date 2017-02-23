@@ -24,16 +24,29 @@ class ExpandingToolBar: UIView {
     var buttonColor = UIColor.gray
     
     var direction: Direction = .west{
+        
         didSet{
             self.isExpanded = false
             contractActionButtons()
         }
     }
     
-    var delegate: Panable?
-    var panable: Bool = false{
+    var panDelegate: Pannable?
+    
+    
+    
+    // TODO: Refactor the updates below
+    var panable: Bool = true{
         didSet{
             panStatusChanged()
+        }
+    }
+    
+    
+    var slideable: Bool = true{
+        
+        didSet{
+            slideStatusChanged()
         }
     }
     
@@ -41,35 +54,33 @@ class ExpandingToolBar: UIView {
     init(frame: CGRect, buttonSize: CGFloat?) {
         
         //Min size must be symmetrical
-        var height: CGFloat
-        var width: CGFloat
-        
-        if frame.height > frame.width{
-            self.minSize = frame.width
-            self.maxSize = frame.height
-            width = minSize
-            height = width
-        }
-        else{
-            self.minSize = frame.height
-            self.maxSize = frame.width
-            height = minSize
-            width = height
-        }
         
         if let buttonSize = buttonSize{
             self.buttonSize = buttonSize
         }
-        else{
-            self.buttonSize = minSize
-        }
         
+        else {
+            
+            self.buttonSize = minSize
+            
+        }
 
-        let newFrame = CGRect(x: frame.origin.x, y: frame.origin.y, width: width, height: height)
+        
+        self.minSize = min(frame.width, frame.height)
+       
+        self.maxSize = max(frame.width, frame.height, minSize*CGFloat(actions.count), self.buttonSize*CGFloat(actions.count))
+        
+        self.buttonSize = self.minSize
+
+        let newFrame = CGRect(x: frame.origin.x, y: frame.origin.y, width: minSize, height: minSize)
+        
         super.init(frame: newFrame)
         
         
         self.backgroundColor = UIColor.red
+        self.clipsToBounds = true
+        self.layer.cornerRadius = 5
+        
         buildExpandButton()
     }
     
@@ -80,28 +91,6 @@ class ExpandingToolBar: UIView {
         
     }
     
-    
-    override func layoutSubviews() {
-        var height: CGFloat
-        var width: CGFloat
-        
-        if frame.height > frame.width{
-            self.minSize = frame.width
-            self.maxSize = frame.height
-            width = minSize
-            height = width
-        }
-        else{
-            self.minSize = frame.height
-            self.maxSize = frame.width
-            height = minSize
-            width = height
-        }
-        
-        self.buttonSize = minSize
-        self.backgroundColor = .gray
-        buildExpandButton()
-    }
     
     private func buildExpandButton(){
         let buttonRect = CGRect(x: self.bounds.origin.x, y: self.bounds.origin.y, width: minSize, height: minSize)
@@ -114,7 +103,6 @@ class ExpandingToolBar: UIView {
             expandButton.addTarget(self, action: #selector(expand), for: .touchUpInside)
             expandButton.setTitle("+", for: .normal)
             expandButton.clipsToBounds = true
-//            expandButton.layer.cornerRadius = 5
         }
     }
     
@@ -139,22 +127,51 @@ class ExpandingToolBar: UIView {
         isExpanded = !isExpanded
     }
     
-    func addAction(title:String, image: UIImage?, action:  @escaping () -> ()){
+    func addAction(title:String?,font: UIFont?, image: UIImage?, color: UIColor?, action:  @escaping () -> ()){
         self.numActions += 1
         let x = self.bounds.origin.x
         let y = self.bounds.origin.y
         
         let buttonRect = CGRect(x: x, y: y, width: minSize, height: minSize)
-        let button = UIButton(frame: buttonRect)
+        
+        
+        let button = ToolbarButton(frame: buttonRect)
+        
+        
+        // TODO: Refactor following paragraphs
         button.backgroundColor = UIColor.brown
         button.layer.borderWidth = self.buttonBorderWidth
         button.layer.borderColor = self.buttonBorderColor
         button.addTarget(self, action: #selector(triggerAction(sender:)), for: .touchUpInside)
+        
+        if let title = title{
+            button.setTitle(title, for: .normal)
+            button.titleLabel?.sizeToFit()
+            button.titleLabel?.adjustsFontSizeToFitWidth = true
+            button.titleLabel?.minimumScaleFactor = 0.1
+        }
+        
+
         button.clipsToBounds = true
-        button.layer.cornerRadius = 5
+        
+        
+        if let font = font{
+            button.setFont(font: font)
+        }
+        
+        if let image = image{
+            button.setBackgroundImage(image, for: .normal)
+        }
+        
+        if let color = color{
+            button.backgroundColor = color
+        }
+        
+        
         let toolbarAction = ToolbarAction(button: button, image:image, action: action)
         actions.append(toolbarAction)
     }
+
     
     private func layoutActionButtons(){
         UIView.animate(withDuration: 0.5) { [unowned self] in
@@ -203,7 +220,6 @@ class ExpandingToolBar: UIView {
         case .north:
             return CGRect(x: self.frame.origin.x, y: self.frame.origin.y + maxSize - minSize, width: minSize, height: minSize)
         }
-        
     }
     
     
@@ -259,7 +275,7 @@ class ExpandingToolBar: UIView {
     }
     
    private func panStatusChanged(){
-        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(callDelegate))
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(callPanDelegate))
         
         
         if self.panable && self.expandButton!.gestureRecognizers == nil{
@@ -270,16 +286,80 @@ class ExpandingToolBar: UIView {
         }
     }
     
+    private func slideStatusChanged(){
+        let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(expand))
+        
+        let slideGesture = UIPanGestureRecognizer(target: self, action: #selector(callSlideDelegate))
+        
+        if self.slideable{
+            self.addGestureRecognizer(longPressGesture)
+            self.addGestureRecognizer(slideGesture)
+        }
+        
+    }
+    
+    // MARK: ExpandButton Editing Functions
+    func setExpandButtonTitle(title:String?, font: UIFont?){
+        if let title = title{
+            self.expandButton?.setTitle(title, for: .normal)
+        }
+        
+        
+        if let font = font{
+            expandButton?.titleLabel?.font = font
+        }
+    }
+    
+    func setExpandButtonColor(color: UIColor){
+        expandButton?.backgroundColor = color
+    }
+    
+    func setExpandButtonImage(image: UIImage){
+        expandButton?.setBackgroundImage(image, for: .normal)
+    }
     
     
-    func callDelegate(){ // TODO: How do I modify the access level of this function if
+    // MARK: Toolbar Action Editing Functions
+
+    func removeButton(index: Int){
+        self.contractActionButtons()
+        self.actions.remove(at: index)
+    }
+    
+    func setTitleForButtonAt(index: Int, title: String, font: UIFont?){
+        
+        let thisButton = self.actions[index].button
+        thisButton.setTitle(title, for: .normal)
+        if let font = font{
+            thisButton.titleLabel?.font = font
+        }
+        
+    }
+    
+    func setImageForButtonAt(index:Int, image:UIImage){
+        self.actions[index].button.setImage(image, for: .normal)
+        self.actions[index].button.imageView?.contentMode = .scaleAspectFit
+    }
+    
+    func setColorsForActionAt(index: Int, color: UIColor){
+        self.actions[index].button.backgroundColor = color
+    }
+    
+    
+    
+    
+    
+    func callPanDelegate(){ // TODO: How do I modify the access level of this function if
         print("calling delegate")
-        self.delegate?.moveToolbar(sender: self.expandButton!.gestureRecognizers![0] as! UIPanGestureRecognizer, source: self)
+        self.panDelegate?.moveToolbar(sender: self.expandButton!.gestureRecognizers![0] as! UIPanGestureRecognizer, source: self)
+    }
+    
+    
+    func callSlideDelegate(){
+        
+    
     }
 }
-
-
-
 
 
 enum Direction{
@@ -290,7 +370,7 @@ enum Direction{
 }
 
 struct ToolbarAction {
-    var button: UIButton
+    var button: ToolbarButton
     var action: () -> ()
     
     var image:UIImage?{
@@ -300,8 +380,8 @@ struct ToolbarAction {
         }
     }
     
-    
-    init(button:UIButton, image: UIImage?, action: @escaping () -> ()){
+
+    init(button:ToolbarButton, image: UIImage?, action: @escaping () -> ()){
         self.button = button
         self.action = action
         if let image = image{
@@ -313,12 +393,18 @@ struct ToolbarAction {
 }
 
 
-protocol Panable{
+protocol Pannable{
     func moveToolbar(sender: UIPanGestureRecognizer, source:UIView)
 }
 
+protocol Slideable{
+    func triggerSlide(sender: UIPanGestureRecognizer, source: UIView)
+}
 
-extension Panable where Self: UIViewController{
+
+// TODO: Eliminate redundancy
+
+extension Pannable where Self: UIViewController{
     func moveToolbar(sender: UIPanGestureRecognizer, source: UIView){
         if sender.state == .began || sender.state == .changed {
             
@@ -328,6 +414,49 @@ extension Panable where Self: UIViewController{
             sender.setTranslation(CGPoint.zero, in: self.view)
         }
     }
+}
+
+extension Pannable where Self: UIView{
+    func moveToolbar(sender: UIPanGestureRecognizer, source: UIView){
+        if sender.state == .began || sender.state == .changed {
+            
+            let translation = sender.translation(in: self)
+            
+            source.center = CGPoint(x: source.center.x + translation.x, y: source.center.y + translation.y)
+            sender.setTranslation(CGPoint.zero, in: self)
+        }
+    }
+}
+
+
+
+extension Slideable where Self: UIViewController{
+    func triggerSlide(sender: UIPanGestureRecognizer, source: UIView){
+        if sender.state == .began || sender.state == .changed{
+            
+//            let tranlsation = sender.
+            
+        }
+    }
+    
+}
+
+
+class ToolbarButton: UIButton {
+    
+    
+    func setFont(font:UIFont){
+        self.titleLabel?.font = font
+    }
+    
+    func setBorder(width: CGFloat){
+        self.layer.borderWidth = width
+    }
+    
+    func setBorderColor(color: UIColor){
+        self.layer.borderColor = color.cgColor
+    }
+    
 }
 
 
