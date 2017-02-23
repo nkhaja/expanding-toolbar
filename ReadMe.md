@@ -107,4 +107,4 @@ To change the direction set the `direction` variable on an instance of the Expan
 
 `toolbar.panable = true`
 
-![](https://github.com/nkhaja/expanding-toolbar/tree/master/ExpandingToolbarPreview.gif)
+![Alt text](expandingToolBarPreview.gif "Preview")
